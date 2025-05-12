@@ -23,11 +23,11 @@ st.markdown(
 )
 
 # Carrega chave da OpenAI
-oai_key = st.secrets.get("OPENAI_API_KEY")
-if not oai_key:
-    st.error("Erro interno.")
+api_key = st.secrets.get("OPENAI_API_KEY")
+if not api_key:
+    st.error("Erro interno: chave da OpenAI não encontrada.")
     st.stop()
-openai.api_key = oai_key
+openai.api_key = api_key
 
 # Prompt padrão para o assistente de dados
 system_prompt = (
@@ -37,30 +37,29 @@ system_prompt = (
 )
 
 # Função para carregar a planilha padrão de apoio
-def get_data_path():
-    base_dir = os.path.dirname(__file__)
-    return os.path.join(base_dir, "dadosfreiodeourodomingueiro.xlsx")
-
 @st.cache_data
 def load_data():
-    path = get_data_path()
-    try:
-        return pd.read_excel(path)
-    except Exception:
-        return None
+    arquivo = "dadosfreiodeourodomingueiro.xlsx"
+    if os.path.exists(arquivo):
+        try:
+            return pd.read_excel(arquivo)
+        except Exception:
+            return None
+    return None
 
 # Carrega dados
-df = load_data()
-if df is None:
-    st.error("Erro interno.")
+_df = load_data()
+if _df is None:
+    st.error("Erro interno ao carregar dados.")
     st.stop()
 
 # Campo de entrada de perguntas (único componente visível ao usuário)
 query = st.text_input("Faça sua pergunta sobre os dados:")
 if query:
     with st.spinner("Processando..."):
-        # Prepara inputs para o modelo
-        table_csv = df.to_csv(index=False)
+        # Prepara o CSV da tabela
+        table_csv = _df.to_csv(index=False)
+        # Prepara mensagens para o modelo
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Tabela em CSV:\n{table_csv}\n\nPergunta: {query}"}
@@ -72,11 +71,12 @@ if query:
             temperature=0,
             max_tokens=2048
         )
-        # Exibe resposta em HTML protegida contra cópia
+        # Monta resposta HTML protegida contra cópia
         html_output = response.choices[0].message.content
         wrapper = (
             "<div style='user-select: none; -webkit-user-select: none;'>"
             + html_output +
             "</div>"
         )
+        # Exibe a resposta
         st.components.v1.html(wrapper, height=600, scrolling=True)
