@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import openai
 import os
+import time
 
 # =============================
 #  App: progenefreiodeouro
@@ -9,7 +10,6 @@ import os
 #  de resultados do Freio de Ouro com IA
 # =============================
 
-# Configurar chave da API
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @st.cache_data
@@ -30,46 +30,42 @@ st.sidebar.markdown("- Qual a nota média na coluna 'Final' por categoria?")
 
 pergunta = st.text_input("Faça uma pergunta livre sobre os dados do Freio de Ouro:")
 
-
 def responder_pergunta(pergunta: str) -> str:
     try:
-        # Fazer upload do arquivo
-        file_upload = client.files.create(
+        # Fazer upload da planilha
+        file_upload = openai.files.create(
             file=open("dadosfreiodeourodomingueiro.xlsx", "rb"),
             purpose="assistants"
         )
 
-        # Criar o assistant com o arquivo já vinculado
-        assistant = client.beta.assistants.create(
+        # Criar o assistant com ferramenta de busca de arquivos
+        assistant = openai.beta.assistants.create(
             name="Freio de Ouro Analyst",
             instructions="Você é um especialista em provas do Freio de Ouro. Use os dados fornecidos para responder perguntas com precisão.",
-            model="gpt-4-turbo",
-            tools=[{"type": "file_search"}],
-            file_ids=[file_upload.id]
-            
+            model="gpt-4-1106-preview",
+            tools=[{"type": "file_search"}]
         )
 
-        
-
         # Criar um thread
-        thread = client.beta.threads.create()
+        thread = openai.beta.threads.create()
 
-        # Enviar a pergunta
-        client.beta.threads.messages.create(
+        # Enviar a pergunta do usuário
+        openai.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
             content=pergunta
         )
 
-        # Iniciar a execução do assistant
-        run = client.beta.threads.runs.create(
+        # Iniciar a execução do assistant com o arquivo associado
+        run = openai.beta.threads.runs.create(
             thread_id=thread.id,
-            assistant_id=assistant.id
+            assistant_id=assistant.id,
+            tool_resources={"file_search": {"file_ids": [file_upload.id]}}
         )
 
-        # Aguardar a execução terminar
+        # Esperar a conclusão da execução
         while True:
-            run_status = client.beta.threads.runs.retrieve(
+            run_status = openai.beta.threads.runs.retrieve(
                 thread_id=thread.id,
                 run_id=run.id
             )
@@ -77,15 +73,15 @@ def responder_pergunta(pergunta: str) -> str:
                 break
             elif run_status.status == "failed":
                 return "A execução da IA falhou."
+            time.sleep(1)
 
-        # Buscar a resposta
-        messages = client.beta.threads.messages.list(thread_id=thread.id)
+        # Obter a resposta final
+        messages = openai.beta.threads.messages.list(thread_id=thread.id)
         resposta = messages.data[0].content[0].text.value
         return resposta
 
     except Exception as e:
         return f"Erro ao consultar IA com assistant: {e}"
-
 
 if pergunta:
     with st.spinner("Consultando IA..."):
