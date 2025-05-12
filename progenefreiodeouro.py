@@ -13,18 +13,18 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 def load_embedding_model():
     return SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
 
-embedding_model = load_embedding_model()
-
 @st.cache_data
 def load_data():
     df = pd.read_excel("dadosfreiodeourodomingueiro.xlsx")
     return df
 
 df = load_data()
+embedding_model = load_embedding_model()
 
 # Gerar embeddings para todas as colunas (manter em cache)
 @st.cache_data
-def generate_all_column_embeddings(df, model):
+def generate_all_column_embeddings(df):
+    model = load_embedding_model() # Carregar o modelo dentro da função cacheada
     all_column_embeddings = {}
     for col in df.columns:
         unique_values = df[col].astype(str).unique()
@@ -32,7 +32,7 @@ def generate_all_column_embeddings(df, model):
         all_column_embeddings[col] = {value: emb for value, emb in zip(unique_values, embeddings)}
     return all_column_embeddings
 
-all_column_embeddings = generate_all_column_embeddings(df, embedding_model)
+all_column_embeddings = generate_all_column_embeddings(df)
 
 st.title("Progen Freio de Ouro")
 st.subheader("Pergunte sobre os dados dos animais:")
