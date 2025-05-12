@@ -23,11 +23,11 @@ st.markdown(
 )
 
 # Carrega chave da OpenAI
-api_key = st.secrets.get("OPENAI_API_KEY")
-if not api_key:
+oai_key = st.secrets.get("OPENAI_API_KEY")
+if not oai_key:
     st.error("Erro interno: chave da OpenAI não encontrada.")
     st.stop()
-openai.api_key = api_key
+openai.api_key = oai_key
 
 # Prompt padrão para o assistente de dados
 system_prompt = (
@@ -42,7 +42,8 @@ def load_data():
     arquivo = "dadosfreiodeourodomingueiro.xlsx"
     if os.path.exists(arquivo):
         try:
-            return pd.read_excel(arquivo)
+            # Usa engine openpyxl para leitura de xlsx
+            return pd.read_excel(arquivo, engine='openpyxl')
         except Exception:
             return None
     return None
@@ -50,7 +51,7 @@ def load_data():
 # Carrega dados
 _df = load_data()
 if _df is None:
-    st.error("Erro interno ao carregar dados.")
+    st.error("Erro interno ao carregar dados. Verifique se 'dadosfreiodeourodomingueiro.xlsx' está na raiz do app.")
     st.stop()
 
 # Campo de entrada de perguntas
@@ -64,8 +65,8 @@ if query:
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": f"Tabela em CSV:\n{table_csv}\n\nPergunta: {query}"}
         ]
-        # Chama API de chat do OpenAI (v1)
-        response = openai.chat.completions.create(
+        # Chama API de chat do OpenAI corretamente
+        response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0,
