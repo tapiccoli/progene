@@ -14,7 +14,7 @@ def carregar_dados():
 df = carregar_dados()
 
 # Título da aplicação
-st.title("🤖 Consulta Bot - Linhas Maternas Crioulas")
+st.title("🤖 Consulta Bot - Genética Crioula")
 
 # Mostra algumas perguntas prontas
 st.sidebar.title("🔍 Exemplos de Perguntas")
@@ -53,9 +53,4 @@ if pergunta:
     with st.spinner("Consultando base de dados e IA..."):
         resposta = responder_pergunta(pergunta, df)
         st.markdown("### Resposta:")
-        st.write(resposta)
-
-# Mostrar a tabela opcionalmente
-if st.checkbox("Mostrar dados da planilha"):
-    st.dataframe(df)
-    
+        st.markdown(f"<div style='user-select: none; -webkit-user-select: none; -moz-user-select: none;'>{resposta}</div>", unsafe_allow_html=True)
