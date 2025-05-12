@@ -9,7 +9,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Carregar os dados da planilha
 @st.cache_data
 def carregar_dados():
-    return pd.read_excel("dadosprogene.xls")
+    return pd.read_excel("dadosprogene.xlsx")
 
 df = carregar_dados()
 
