@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import openai
 import os
+from openai.error import InvalidRequestError
 
 # Configurações da página
 st.set_page_config(
@@ -42,7 +43,6 @@ def load_data():
     arquivo = "dadosfreiodeourodomingueiro.xlsx"
     if os.path.exists(arquivo):
         try:
-            # Usa engine openpyxl para leitura de xlsx
             return pd.read_excel(arquivo, engine='openpyxl')
         except Exception:
             return None
@@ -58,20 +58,26 @@ if _df is None:
 query = st.text_input("Faça sua pergunta sobre os dados:")
 if query:
     with st.spinner("Processando..."):
-        # Converte a tabela em CSV para o prompt
+        # Prepara CSV completo da tabela
         table_csv = _df.to_csv(index=False)
-        # Prepara sequência de mensagens para o modelo
+        # Monta sequência de mensagens para o modelo
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": f"Tabela em CSV:\n{table_csv}\n\nPergunta: {query}"}
+            {"role": "user",   "content": f"Tabela em CSV (todas as {len(_df)} linhas):\n{table_csv}\n\nPergunta: {query}"}
         ]
-        # Chama API de chat do OpenAI corretamente
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            temperature=0,
-            max_tokens=2048
-        )
+        # Chama API do OpenAI com tratamento de erro
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0,
+                max_tokens=4096
+            )
+        except InvalidRequestError:
+            st.error(
+                "Erro de requisição: o prompt é muito grande. Verifique o tamanho dos dados e tente novamente."
+            )
+            st.stop()
         # Extrai o HTML de resposta
         html_output = response.choices[0].message.content
         # Wrapper para desabilitar cópia
