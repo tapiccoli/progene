@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-import openai
+from openai import OpenAI
 import os
 
 # Configurar a API da OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Carregar os dados da planilha
 @st.cache_data
@@ -36,7 +36,7 @@ def responder_pergunta(pergunta, dados):
     Seja claro e use dados reais da tabela.
     """
     try:
-        resposta = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "Você é um assistente especializado em dados de cavalos Crioulos."},
@@ -44,7 +44,7 @@ def responder_pergunta(pergunta, dados):
             ],
             temperature=0.4
         )
-        return resposta.choices[0].message.content
+        return response.choices[0].message.content
     except Exception as e:
         return f"Erro ao consultar IA: {e}"
 
