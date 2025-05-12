@@ -30,6 +30,7 @@ st.sidebar.markdown("- Qual a média da nota Final dos machos no Freio de Ouro?"
 pergunta = st.text_input("Digite sua pergunta sobre os dados:")
 
 # Função para gerar código com base na pergunta
+
 def gerar_codigo_analise(pergunta):
     prompt = f"""
     Você é um analista de dados especializado em cavalos da raça Crioula.
@@ -38,7 +39,7 @@ def gerar_codigo_analise(pergunta):
 
     Pergunta: {pergunta}
 
-    Forneça apenas o código. Não inclua explicações.
+    Forneça apenas o código. Não inclua explicações, nem tags markdown, nem a palavra 'python'.
     """
     try:
         resposta = client.chat.completions.create(
@@ -69,7 +70,7 @@ def executar_codigo(codigo, dados):
 if pergunta:
     with st.spinner("Gerando análise baseada em IA..."):
         codigo = gerar_codigo_analise(pergunta)
-        st.code(codigo, language='python')
         resposta = executar_codigo(codigo, df)
         st.markdown("### Resultado da Análise:")
         st.markdown(f"<div style='user-select: none; -webkit-user-select: none; -moz-user-select: none;'>{resposta}</div>", unsafe_allow_html=True)
+-user-select: none; -moz-user-select: none;'>{resposta}</div>", unsafe_allow_html=True)
