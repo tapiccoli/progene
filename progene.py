@@ -72,5 +72,4 @@ if pergunta:
         codigo = gerar_codigo_analise(pergunta)
         resposta = executar_codigo(codigo, df)
         st.markdown("### Resultado da Análise:")
-        st.markdown(f"<div style='user-select: none; -webkit-user-select: none; -moz-user-select: none;'>{resposta}</div>", unsafe_allow_html=True)
--user-select: none; -moz-user-select: none;'>{resposta}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style=\"user-select: none; -webkit-user-select: none; -moz-user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
