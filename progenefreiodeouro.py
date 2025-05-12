@@ -36,30 +36,42 @@ pergunta = st.text_input("Digite sua pergunta sobre o Freio de Ouro:")
 
 # Função de resposta usando GPT‑3.5‑turbo (SDK ≥1.0)
 def responder_pergunta(pergunta: str, dados: pd.DataFrame) -> str:
-    """Gera resposta usando IA com snapshot de dados para contexto."""
-    snapshot = dados.head(10).to_string(index=False)
-    system_prompt = (
-        "Você é um assistente de análise de dados de cavalos Crioulos, especializado nas provas de Freio de Ouro. "
-        "A tabela possui colunas como: 'Nome Animal', 'CATEGORIA', 'C', 'A', 'SEXO', 'Familia Materna' e notas das etapas: "
-        "'Andadura', 'Figura', 'VSP/ESB', 'Mangueira I', 'Campo I', 'Mangueira II', 'Bayard', 'Campo II', 'Final'. "
-        "Use o contexto abaixo para responder de forma objetiva.\n" + snapshot
-    )
-    try:
-        resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": pergunta}
-            ],
-            temperature=0.2
-        )
-        return resp.choices[0].message.content
-    except Exception as e:
-        return f"Erro ao consultar IA: {e}"
+    """Analisa a pergunta e usa pandas para calcular sobre TODAS as 1.050 linhas."""
+    pergunta_l = pergunta.lower()
 
-# Exibir resposta
-if pergunta:
-    with st.spinner("Consultando IA..."):
-        resposta = responder_pergunta(pergunta, df)
-        st.markdown("### Resposta:")
-        st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
+    # 1) Família materna mais frequente
+    if "família materna" in pergunta_l and ("mais frequente" in pergunta_l or "mais repetida" in pergunta_l):
+        fam = dados['Familia Materna'].value_counts().head(5)
+        resposta = "Famílias maternas mais frequentes:
+" + "
+".join([f"- {n} ({c} ocorrências)" for n, c in fam.items()])
+        return resposta
+
+    # 2) Domingueiros com linhas maternas repetidas
+    if "domingueiro" in pergunta_l and "linhas" in pergunta_l and "materna" in pergunta_l:
+        dom = dados[dados['CATEGORIA'].str.contains('DOMINGUEIRO', case=False, na=False)]
+        cont = dom['Familia Materna'].value_counts()
+        repet = cont[cont > 1]
+        return f"Domingueiros analisados: {len(dom)}
+Linhas maternas que se repetem: {len(repet)}"
+
+    # 3) Pai com mais filhos finalistas
+    if ("pai" in pergunta_l) and ("mais filhos" in pergunta_l or "mais descendentes" in pergunta_l):
+        if 'PAI' in dados.columns:
+            pai = dados['PAI'].value_counts().idxmax()
+            total = dados['PAI'].value_counts().max()
+            return f"Pai com mais filhos finalistas: {pai} ({total} filhos)"
+        else:
+            return "A coluna 'PAI' não existe na planilha."
+
+    # 4) Nota média na coluna Final por categoria
+    if "nota média" in pergunta_l and "final" in pergunta_l:
+        if 'Final' in dados.columns:
+            media_cat = dados.groupby('CATEGORIA')['Final'].mean().round(2)
+            return "Nota média da coluna 'Final' por categoria:
+" + media_cat.to_string()
+        else:
+            return "A coluna 'Final' não existe na planilha."
+
+    # Se não foi possível detectar a intenção, retornar mensagem padrão.
+    return "Desculpe, não consegui entender a pergunta. Tente reformular ou peça um dos exemplos no menu lateral."
