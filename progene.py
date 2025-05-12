@@ -1,82 +1,65 @@
 import streamlit as st
 import pandas as pd
-from openai import OpenAI
+import openai
 import os
-import traceback
-import re
+
+# =============================
+#  App: progenefreiodeouro
+#  Descrição: Chatbot de análise
+#  de resultados do Freio de Ouro
+# =============================
 
 # Configurar a API da OpenAI
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Carregar os dados da planilha
+# Carregar os dados da planilha Freio de Ouro
 @st.cache_data
 def carregar_dados():
-    df = pd.read_excel("dadosprogene.xlsx")
-    df['Prova'] = df['Prova'].replace({"F.O.": "Freio de Ouro", "MORF": "Morfologia"})
+    df = pd.read_excel("dadosfreiodeourodomingueiro.xlsx")
+    # Expandir abreviatura
+    df['Prova'] = df['Prova'].replace({"F.O.": "Freio de Ouro"})
     return df
 
-# Carregar dataframe
 df = carregar_dados()
 
-# Título da aplicação
-st.title("🤖 Consulta Bot - Genética Crioula (Inteligência Livre)")
+# Interface do Streamlit
+st.title("progenefreiodeouro")
 
-# Exemplos de perguntas
 st.sidebar.title("🔍 Exemplos de Perguntas")
-st.sidebar.markdown("- Qual o pai com maior número de filhos domingueiros?")
-st.sidebar.markdown("- Quais as linhas maternas mais repetidas na Morfologia?")
-st.sidebar.markdown("- Quem foi o campeão da Morfologia em 2023?")
-st.sidebar.markdown("- Qual a média da nota Final dos machos no Freio de Ouro?")
+st.sidebar.markdown("- Qual a família materna mais frequente no Freio de Ouro?")
+st.sidebar.markdown("- Quantos domingueiros possuem linhas maternas repetidas?")
+st.sidebar.markdown("- Qual o pai com mais filhos finalistas?")
+st.sidebar.markdown("- Qual a nota média na coluna 'Final' por categoria?")
 
-# Entrada de pergunta
-pergunta = st.text_input("Digite sua pergunta sobre os dados:")
+# Entrada de pergunta do usuário
+pergunta = st.text_input("Digite sua pergunta sobre o Freio de Ouro:")
 
-# Função para gerar código com base na pergunta
-def gerar_codigo_analise(pergunta):
-    prompt = f"""
-    Você é um analista de dados especializado em cavalos da raça Crioula.
-    Com base na pergunta abaixo, escreva um código Python usando pandas
-    para analisar um DataFrame chamado df que contém dados da planilha.
-
-    Pergunta: {pergunta}
-
-    Forneça apenas o código. Não inclua explicações, nem tags markdown, nem a palavra 'python'.
-    """
+# Função de resposta usando GPT-3.5-turbo
+def responder_pergunta(pergunta: str, dados: pd.DataFrame) -> str:
+    """Gera resposta usando a IA com snapshot de dados para contexto."""
+    snapshot = dados.head(10).to_string(index=False)
+    system_prompt = (
+        "Você é um assistente de análise de dados de cavalos Crioulos, especializado nas provas de Freio de Ouro. "
+        "A tabela possui colunas como: 'Nome Animal', 'CATEGORIA', 'C', 'A', 'SEXO', 'Familia Materna' e notas das etapas: "
+        "'Andadura', 'Figura', 'VSP/ESB', 'Mangueira I', 'Campo I', 'Mangueira II', 'Bayard', 'Campo II', 'Final'. "
+        "Use o contexto abaixo para responder de forma objetiva.\n" + snapshot
+    )
     try:
-        resposta = client.chat.completions.create(
-            model="gpt-4",
+        resp = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Você é um gerador de código pandas que responde apenas com código."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": pergunta}
             ],
             temperature=0.2
         )
-        # Limpar marcações de bloco de código e a keyword python
-        codigo_bruto = resposta.choices[0].message.content
-        # Remover backticks e tags de linguagem
-        codigo_limpo = re.sub(r"```[a-zA-Z]*", "", codigo_bruto)
-        lines = codigo_limpo.splitlines()
-        filtered = [l for l in lines if l.strip() and not l.strip().lower().startswith('python') and not l.strip().startswith('```')]
-        return "\n".join(filtered)
+        return resp.choices[0].message.content
     except Exception as e:
-        return f"# ERRO: {e}"
+        return f"Erro ao consultar IA: {e}"
 
-# Função para executar o código gerado
-def executar_codigo(codigo, dados):
-    try:
-        local_vars = {"df": dados.copy()}
-        exec(codigo, {}, local_vars)
-        for var_name, var_value in local_vars.items():
-            if isinstance(var_value, (pd.Series, pd.DataFrame)):
-                return var_value.to_markdown()
-        return "Código executado, mas nenhum DataFrame ou Series foi retornado."
-    except Exception:
-        return "Erro na execução do código:\n" + traceback.format_exc()
-
-# Fluxo principal
+# Exibir resposta
 if pergunta:
-    with st.spinner("Gerando análise baseada em IA..."):
-        codigo = gerar_codigo_analise(pergunta)
-        resultado = executar_codigo(codigo, df)
-        st.markdown("### Resultado da Análise:")
-        st.markdown(f"<div style=\"user-select: none; -webkit-user-select: none; -moz-user-select: none;\">{resultado}</div>", unsafe_allow_html=True)
+    with st.spinner("Consultando IA..."):
+        resposta = responder_pergunta(pergunta, df)
+        st.markdown("### Resposta:")
+        st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
