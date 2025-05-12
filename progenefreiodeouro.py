@@ -47,11 +47,12 @@ if st.button("Obter Resposta"):
         try:
             pergunta_embedding = embedding_model.encode([pergunta])[0]
             relevant_context = []
+            similarity_threshold = 0.6 # Limiar ligeiramente mais baixo
 
             for col, value_embeddings in all_column_embeddings.items():
                 for value, emb in value_embeddings.items():
                     similarity = cosine_similarity([pergunta_embedding], [emb])[0][0]
-                    if similarity > 0.7:
+                    if similarity > similarity_threshold:
                         relevant_rows = df[df[col].astype(str) == value]
                         for index, row in relevant_rows.iterrows():
                             relevant_context.append(row.to_dict())
@@ -63,28 +64,32 @@ if st.button("Obter Resposta"):
             for item in unique_context:
                 context_string += f"{item}\n"
 
-            prompt = f"""Você é um sistema de consulta de dados estritamente limitado ao seguinte contexto. Responda à pergunta APENAS com as informações fornecidas abaixo. Se a resposta não puder ser encontrada no contexto, responda com uma frase curta e direta informando que a informação não está disponível. NÃO use seu conhecimento geral para responder.
+            colunas_tabela = ", ".join(df.columns)
 
-            Contexto:
+            prompt = f"""Você é um sistema de consulta de dados EXTREMAMENTE restrito à informação fornecida abaixo. A informação está organizada em uma tabela com as seguintes colunas: {colunas_tabela}.
+
+            Use APENAS os dados das linhas da tabela fornecidas no contexto para responder à pergunta. Se a resposta NÃO estiver explicitamente presente no contexto, diga "A informação não está disponível na tabela fornecida." NÃO use seu conhecimento geral.
+
+            Contexto da Tabela:
             ```
             {context_string}
             ```
 
             Pergunta: {pergunta}
-            Resposta direta e concisa (baseada APENAS no contexto):"""
+            Resposta (baseada EXCLUSIVAMENTE no contexto da tabela):"""
 
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Você é um sistema de consulta de dados estritamente limitado ao contexto fornecido."},
+                    {"role": "system", "content": "Você é um sistema de consulta de dados estritamente limitado à tabela fornecida."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.0,  # Define a temperatura para 0 para respostas mais determinísticas
-                max_tokens=200,  # Limita o tamanho da resposta para ser concisa
+                temperature=0.0,
+                max_tokens=300,
             )
             resposta_ia = response.choices[0].message.content.strip()
-            if not resposta_ia:
-                resposta_ia = "A informação não está disponível nos dados fornecidos."
+            if "não está disponível" not in resposta_ia.lower() and not any(item in resposta_ia.lower() for item in ["não sei", "desculpe"]):
+                resposta_ia = f"Baseado nos dados da tabela: {resposta_ia}"
             resposta_area.markdown(resposta_ia)
 
         except Exception as e:
