@@ -30,7 +30,6 @@ st.sidebar.markdown("- Qual a média da nota Final dos machos no Freio de Ouro?"
 pergunta = st.text_input("Digite sua pergunta sobre os dados:")
 
 # Função para gerar código com base na pergunta
-
 def gerar_codigo_analise(pergunta):
     prompt = f"""
     Você é um analista de dados especializado em cavalos da raça Crioula.
@@ -50,11 +49,10 @@ def gerar_codigo_analise(pergunta):
             ],
             temperature=0.2
         )
-                codigo_bruto = resposta.choices[0].message.content
+        codigo_bruto = resposta.choices[0].message.content
         linhas = codigo_bruto.strip().splitlines()
         linhas_filtradas = [l for l in linhas if not l.strip().lower().startswith('python')]
-        return "
-".join(linhas_filtradas).strip()
+        return "\n".join(linhas_filtradas).strip()
     except Exception as e:
         return f"# ERRO: {e}"
 
