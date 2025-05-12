@@ -36,50 +36,48 @@ system_prompt = (
     "Use os títulos das colunas da tabela como referência nas perguntas e, após isso, exiba a resposta em HTML, de forma que não possa ser copiada."
 )
 
-# Função para carregar a planilha padrão de apoio com debug
+# Função para carregar a planilha padrão de apoio
 @st.cache_data
 def load_data():
     arquivo = "dadosfreiodeourodomingueiro.xlsx"
-    app_dir = os.getcwd()
-    if not os.path.exists(arquivo):
-        st.error(f"Arquivo não encontrado: {arquivo}. Conteúdo de {app_dir}: {os.listdir(app_dir)}")
-        return None
-    try:
-        df = pd.read_excel(arquivo)
-        return df
-    except Exception as e:
-        st.error(f"Falha ao ler '{arquivo}': {e}")
-        return None
+    if os.path.exists(arquivo):
+        try:
+            return pd.read_excel(arquivo)
+        except Exception:
+            return None
+    return None
 
 # Carrega dados
 _df = load_data()
 if _df is None:
+    st.error("Erro interno ao carregar dados.")
     st.stop()
 
-# Campo de entrada de perguntas (único componente visível ao usuário)
+# Campo de entrada de perguntas
 query = st.text_input("Faça sua pergunta sobre os dados:")
 if query:
     with st.spinner("Processando..."):
-        # Prepara o CSV da tabela
+        # Converte a tabela em CSV para o prompt
         table_csv = _df.to_csv(index=False)
-        # Prepara mensagens para o modelo
+        # Prepara sequência de mensagens para o modelo
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Tabela em CSV:\n{table_csv}\n\nPergunta: {query}"}
+            {"role": "user",   "content": f"Tabela em CSV:\n{table_csv}\n\nPergunta: {query}"}
         ]
-        # Chama API do OpenAI
-        response = openai.ChatCompletion.create(
+        # Chama API de chat do OpenAI (v1)
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0,
             max_tokens=2048
         )
-        # Monta resposta HTML protegida contra cópia
+        # Extrai o HTML de resposta
         html_output = response.choices[0].message.content
+        # Wrapper para desabilitar cópia
         wrapper = (
-            "<div style='user-select: none; -webkit-user-select: none;'>"
-            + html_output +
+            "<div style='user-select: none; -webkit-user-select: none;'>" +
+            html_output +
             "</div>"
         )
-        # Exibe a resposta
+        # Exibe a resposta protegida
         st.components.v1.html(wrapper, height=600, scrolling=True)
