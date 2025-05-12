@@ -36,21 +36,24 @@ system_prompt = (
     "Use os títulos das colunas da tabela como referência nas perguntas e, após isso, exiba a resposta em HTML, de forma que não possa ser copiada."
 )
 
-# Função para carregar a planilha padrão de apoio
+# Função para carregar a planilha padrão de apoio com debug
 @st.cache_data
 def load_data():
     arquivo = "dadosfreiodeourodomingueiro.xlsx"
-    if os.path.exists(arquivo):
-        try:
-            return pd.read_excel(arquivo)
-        except Exception:
-            return None
-    return None
+    app_dir = os.getcwd()
+    if not os.path.exists(arquivo):
+        st.error(f"Arquivo não encontrado: {arquivo}. Conteúdo de {app_dir}: {os.listdir(app_dir)}")
+        return None
+    try:
+        df = pd.read_excel(arquivo)
+        return df
+    except Exception as e:
+        st.error(f"Falha ao ler '{arquivo}': {e}")
+        return None
 
 # Carrega dados
 _df = load_data()
 if _df is None:
-    st.error("Erro interno ao carregar dados.")
     st.stop()
 
 # Campo de entrada de perguntas (único componente visível ao usuário)
