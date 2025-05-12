@@ -80,7 +80,7 @@ def responder_pergunta(pergunta: str) -> str:
         return resposta
 
     except Exception as e:
-        return f"Erro ao consultar IA com assistant: {e}""
+        return f"Erro ao consultar IA com assistant: {e}"
 
 
 if pergunta:
@@ -88,3 +88,4 @@ if pergunta:
         resposta = responder_pergunta(pergunta)
     st.markdown("### Resposta:")
     st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
+
