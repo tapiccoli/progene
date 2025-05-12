@@ -44,7 +44,7 @@ def responder_pergunta(pergunta: str) -> str:
             instructions="Você é um especialista em provas do Freio de Ouro. Use os dados fornecidos para responder perguntas com precisão.",
             model="gpt-4-turbo",
             tools=[{"type": "file_search"}],
-            file_ids=[file_upload.id]
+            
         )
 
         # Criar um thread
@@ -88,4 +88,3 @@ if pergunta:
         resposta = responder_pergunta(pergunta)
     st.markdown("### Resposta:")
     st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
-
