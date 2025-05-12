@@ -24,7 +24,7 @@ embedding_model = load_embedding_model()
 # Gerar embeddings para todas as colunas (manter em cache)
 @st.cache_data
 def generate_all_column_embeddings(df):
-    model = load_embedding_model() # Carregar o modelo dentro da função cacheada
+    model = load_embedding_model()
     all_column_embeddings = {}
     for col in df.columns:
         unique_values = df[col].astype(str).unique()
@@ -51,7 +51,7 @@ if st.button("Obter Resposta"):
             for col, value_embeddings in all_column_embeddings.items():
                 for value, emb in value_embeddings.items():
                     similarity = cosine_similarity([pergunta_embedding], [emb])[0][0]
-                    if similarity > 0.7: # Ajuste o limiar conforme necessário
+                    if similarity > 0.7:
                         relevant_rows = df[df[col].astype(str) == value]
                         for index, row in relevant_rows.iterrows():
                             relevant_context.append(row.to_dict())
@@ -63,16 +63,24 @@ if st.button("Obter Resposta"):
             for item in unique_context:
                 context_string += f"{item}\n"
 
-            prompt = f"Você é um assistente que responde perguntas sobre dados de animais. Use as seguintes informações para responder à pergunta:\n\n{context_string}\n\nPergunta: {pergunta}\nResposta:"
+            prompt = f"""Você é um assistente especializado em responder perguntas sobre dados de animais fornecidos no seguinte contexto. Use **apenas** as informações presentes no contexto para responder à pergunta. Se a resposta não estiver no contexto, diga que você não tem a informação.
+
+            Contexto:
+            ```
+            {context_string}
+            ```
+
+            Pergunta: {pergunta}
+            Resposta:"""
 
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Você é um assistente útil para responder perguntas sobre dados de animais."},
+                    {"role": "system", "content": "Você é um assistente especializado em responder perguntas sobre dados de animais."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,
-                max_tokens=500 # Aumentei um pouco mais o max_tokens
+                max_tokens=500
             )
             resposta_ia = response.choices[0].message.content
             resposta_area.markdown(resposta_ia)
