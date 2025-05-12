@@ -37,7 +37,7 @@ def responder_pergunta(pergunta, dados):
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Você é um assistente especializado em dados de cavalos Crioulos."},
                 {"role": "user", "content": prompt}
