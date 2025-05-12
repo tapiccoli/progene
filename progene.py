@@ -50,7 +50,11 @@ def gerar_codigo_analise(pergunta):
             ],
             temperature=0.2
         )
-        return resposta.choices[0].message.content.strip("`").strip()
+                codigo_bruto = resposta.choices[0].message.content
+        linhas = codigo_bruto.strip().splitlines()
+        linhas_filtradas = [l for l in linhas if not l.strip().lower().startswith('python')]
+        return "
+".join(linhas_filtradas).strip()
     except Exception as e:
         return f"# ERRO: {e}"
 
