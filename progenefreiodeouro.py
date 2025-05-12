@@ -1,90 +1,72 @@
 import streamlit as st
 import pandas as pd
-import openai
+from openai import OpenAI
 import os
-from openai.error import InvalidRequestError
 
-# Configurações da página
-st.set_page_config(
-    page_title="Progenefreiodeouro",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+# =============================
+#  App: progenefreiodeouro
+#  Descrição: Chatbot de análise
+#  de resultados do Freio de Ouro
+# =============================
 
-# Oculta menu do Streamlit e desabilita seleção de texto global
-st.markdown(
-    """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    body {user-select: none; -webkit-user-select: none;}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Carrega chave da OpenAI
-oai_key = st.secrets.get("OPENAI_API_KEY")
-if not oai_key:
-    st.error("Erro interno: chave da OpenAI não encontrada.")
-    st.stop()
-openai.api_key = oai_key
-
-# Prompt padrão para o assistente de dados
-system_prompt = (
-    "Você precisa agir como um analisador de dados experiente, "
-    "que busca os dados na planilha 'dadosfreiodeourodomingueiro.xlsx' encontrada no repositório deste aplicativo. "
-    "Use os títulos das colunas da tabela como referência nas perguntas e, após isso, exiba a resposta em HTML, de forma que não possa ser copiada."
-)
-
-# Função para carregar a planilha padrão de apoio
 @st.cache_data
-def load_data():
-    arquivo = "dadosfreiodeourodomingueiro.xlsx"
-    if os.path.exists(arquivo):
-        try:
-            return pd.read_excel(arquivo, engine='openpyxl')
-        except Exception:
-            return None
-    return None
+def carregar_dados():
+    df = pd.read_excel("dadosfreiodeourodomingueiro.xlsx")
+    if 'Prova' in df.columns:
+        df['Prova'] = df['Prova'].replace({"F.O.": "Freio de Ouro"})
+    return df
 
-# Carrega dados
-_df = load_data()
-if _df is None:
-    st.error("Erro interno ao carregar dados. Verifique se 'dadosfreiodeourodomingueiro.xlsx' está na raiz do app.")
-    st.stop()
+df = carregar_dados()
 
-# Campo de entrada de perguntas
-query = st.text_input("Faça sua pergunta sobre os dados:")
-if query:
-    with st.spinner("Processando..."):
-        # Prepara CSV completo da tabela
-        table_csv = _df.to_csv(index=False)
-        # Monta sequência de mensagens para o modelo
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": f"Tabela em CSV (todas as {len(_df)} linhas):\n{table_csv}\n\nPergunta: {query}"}
-        ]
-        # Chama API do OpenAI com tratamento de erro
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0,
-                max_tokens=4096
-            )
-        except InvalidRequestError:
-            st.error(
-                "Erro de requisição: o prompt é muito grande. Verifique o tamanho dos dados e tente novamente."
-            )
-            st.stop()
-        # Extrai o HTML de resposta
-        html_output = response.choices[0].message.content
-        # Wrapper para desabilitar cópia
-        wrapper = (
-            "<div style='user-select: none; -webkit-user-select: none;'>" +
-            html_output +
-            "</div>"
-        )
-        # Exibe a resposta protegida
-        st.components.v1.html(wrapper, height=600, scrolling=True)
+st.title("progenefreiodeouro")
+
+st.sidebar.markdown("Esses são apenas exemplos para orientar o tipo de pergunta que você pode fazer:")
+
+st.sidebar.markdown("- Quantos domingueiros possuem linhas maternas repetidas?")
+st.sidebar.markdown("- Qual o pai com mais filhos finalistas?")
+st.sidebar.markdown("- Qual a nota média na coluna 'Final' por categoria?")
+
+pergunta = st.text_input("Faça uma pergunta livre sobre os dados do Freio de Ouro:")
+
+
+def responder_pergunta(pergunta: str, dados: pd.DataFrame) -> str:
+    pergunta_l = pergunta.lower()
+
+    # 1) Família materna mais frequente
+    if "família materna" in pergunta_l and ("mais frequente" in pergunta_l or "mais repetida" in pergunta_l):
+        fam = dados['Familia Materna'].value_counts().head(5)
+        linhas = [f"- {n} ({c} ocorrências)" for n, c in fam.items()]
+        return "Famílias maternas mais frequentes:\n" + "\n".join(linhas)
+
+    # 2) Domingueiros com linhas maternas repetidas
+    if "domingueiro" in pergunta_l and "linhas" in pergunta_l and "materna" in pergunta_l:
+        dom = dados[dados['CATEGORIA'].str.contains('DOMINGUEIRO', case=False, na=False)]
+        cont = dom['Familia Materna'].value_counts()
+        repet = cont[cont > 1]
+        return f"Domingueiros analisados: {len(dom)}\nLinhas maternas que se repetem: {len(repet)}"
+
+    # 3) Pai com mais filhos finalistas
+    if "pai" in pergunta_l and ("mais filhos" in pergunta_l or "mais descendentes" in pergunta_l):
+        if 'PAI' in dados.columns:
+            pai = dados['PAI'].value_counts().idxmax()
+            total = dados['PAI'].value_counts().max()
+            return f"Pai com mais filhos finalistas: {pai} ({total} filhos)"
+        return "A coluna 'PAI' não existe na planilha."
+
+    # 4) Nota média na coluna Final por categoria
+    if "nota média" in pergunta_l and "final" in pergunta_l:
+        if 'Final' in dados.columns:
+            media_cat = dados.groupby('CATEGORIA')['Final'].mean().round(2)
+            return "Nota média da coluna 'Final' por categoria:\n" + media_cat.to_string()
+        return "A coluna 'Final' não existe na planilha."
+
+    return "Desculpe, não consegui entender a pergunta. Tente reformular ou peça um dos exemplos no menu lateral."
+
+
+if pergunta:
+    with st.spinner("Consultando IA..."):
+        resposta = responder_pergunta(pergunta, df)
+    st.markdown("### Resposta:")
+    st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
