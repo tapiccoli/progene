@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from openai import OpenAI
+import openai
 import os
 
 # =============================
@@ -9,7 +9,8 @@ import os
 #  de resultados do Freio de Ouro com IA
 # =============================
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Configurar chave da API
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @st.cache_data
 def carregar_dados():
