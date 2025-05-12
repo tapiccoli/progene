@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import openai
+from openai import OpenAI
 import os
 
 # =============================
@@ -9,7 +9,7 @@ import os
 #  de resultados do Freio de Ouro com IA
 # =============================
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @st.cache_data
 def carregar_dados():
@@ -38,7 +38,7 @@ def responder_pergunta(pergunta: str, dados: pd.DataFrame) -> str:
         + snapshot
     )
     try:
-        resposta = openai.ChatCompletion.create(
+        resposta = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
