@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from openai import OpenAI
 import os
+import traceback
 
 # Configurar a API da OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -16,61 +17,59 @@ def carregar_dados():
 df = carregar_dados()
 
 # Título da aplicação
-st.title("🤖 Consulta Bot - Genética Crioula")
+st.title("🤖 Consulta Bot - Genética Crioula (Inteligência Livre)")
 
 # Mostra algumas perguntas prontas
 st.sidebar.title("🔍 Exemplos de Perguntas")
-st.sidebar.markdown("- Quantos domingueiros possuem linhas repetidas?")
-st.sidebar.markdown("- Qual a linha materna mais frequente no Freio de Ouro?")
-st.sidebar.markdown("- Quais animais da Morfologia têm linhas maternas que se repetem?")
-st.sidebar.markdown("- Qual o pai com maior número de filhos nos domingueiros do Freio de Ouro nos últimos 10 anos?")
+st.sidebar.markdown("- Qual o pai com maior número de filhos domingueiros?")
+st.sidebar.markdown("- Quais as linhas maternas mais repetidas na Morfologia?")
+st.sidebar.markdown("- Quem foi o campeão da Morfologia em 2023?")
+st.sidebar.markdown("- Qual a média da nota Final dos machos no Freio de Ouro?")
 
 # Entrada de pergunta
 pergunta = st.text_input("Digite sua pergunta sobre os dados:")
 
-# Função para gerar resposta com base na pergunta
-def responder_pergunta(pergunta, dados):
-    prompt_system = """
-    Você é um assistente de análise genética da raça Crioula. Você tem acesso a uma planilha contendo informações sobre provas como o Freio de Ouro e Morfologia.
+# Função para gerar código com base na pergunta
+def gerar_codigo_analise(pergunta):
+    prompt = f"""
+    Você é um analista de dados especializado em cavalos da raça Crioula.
+    Com base na pergunta abaixo, escreva um código Python usando pandas
+    para analisar um DataFrame chamado df que contém dados da planilha.
 
-    A tabela possui as seguintes colunas:
-    - 'Nome Animal': nome do cavalo
-    - 'Prova': nome da prova (Freio de Ouro, Morfologia)
-    - 'CATEGORIA': categoria do animal (ex: DOMINGUEIRO, FINALISTA)
-    - 'C': colocação final do animal na prova
-    - 'A': ano da prova
-    - 'SEXO': sexo do animal
-    - 'Familia Materna': nome da linhagem base materna do cavalo
-    - Além disso, há colunas com notas de desempenho em provas como: 'Morfologia', 'Andadura', 'Figura', 'VSP/ESB', 'Mangueira I', 'Campo I', 'Mangueira II', 'Bayard', 'Campo II', e 'Final'.
+    Pergunta: {pergunta}
 
-    Ao responder, siga estas diretrizes:
-    - Use os dados diretamente da tabela.
-    - Dê respostas com números exatos: totais, porcentagens, listas ordenadas.
-    - Se a pergunta envolver "repetidas", use frequência de nomes na coluna 'Familia Materna'.
-    - Seja direto, evite rodeios.
-    - Se possível, inclua rankings ou percentuais de destaque.
-
-    Exemplo:
-    Pergunta: Quais famílias maternas se repetem na Morfologia?
-    Resposta: As famílias mais frequentes na Morfologia são: Família X (8 vezes), Família Y (6 vezes)...
+    Forneça apenas o código. Não inclua explicações.
     """
-
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+        resposta = client.chat.completions.create(
+            model="gpt-4",
             messages=[
-                {"role": "system", "content": prompt_system},
-                {"role": "user", "content": pergunta}
+                {"role": "system", "content": "Você é um gerador de código pandas que responde apenas com código."},
+                {"role": "user", "content": prompt}
             ],
-            temperature=0.4
+            temperature=0.2
         )
-        return response.choices[0].message.content
+        return resposta.choices[0].message.content.strip("`").strip()
     except Exception as e:
-        return f"Erro ao consultar IA: {e}"
+        return f"# ERRO: {e}"
 
-# Executar quando o usuário digitar algo
+# Função para executar o código gerado
+def executar_codigo(codigo, dados):
+    try:
+        local_vars = {"df": dados.copy()}
+        exec(codigo, {}, local_vars)
+        for var in local_vars:
+            if isinstance(local_vars[var], (pd.Series, pd.DataFrame)):
+                return local_vars[var].to_markdown()
+        return "Código executado, mas nenhum DataFrame ou Series foi retornado."
+    except Exception:
+        return "Erro na execução do código:\n" + traceback.format_exc()
+
+# Processamento principal
 if pergunta:
-    with st.spinner("Consultando base de dados e IA..."):
-        resposta = responder_pergunta(pergunta, df)
-        st.markdown("### Resposta:")
+    with st.spinner("Gerando análise baseada em IA..."):
+        codigo = gerar_codigo_analise(pergunta)
+        st.code(codigo, language='python')
+        resposta = executar_codigo(codigo, df)
+        st.markdown("### Resultado da Análise:")
         st.markdown(f"<div style='user-select: none; -webkit-user-select: none; -moz-user-select: none;'>{resposta}</div>", unsafe_allow_html=True)
