@@ -32,32 +32,55 @@ pergunta = st.text_input("Faça uma pergunta livre sobre os dados do Freio de Ou
 
 def responder_pergunta(pergunta: str) -> str:
     try:
-        upload = client.files.create(
+        # Fazer upload do arquivo
+        file_upload = client.files.create(
             file=open("dadosfreiodeourodomingueiro.xlsx", "rb"),
             purpose="assistants"
         )
 
-        resposta = client.chat.completions.create(
+        # Criar o assistant
+        assistant = client.beta.assistants.create(
+            name="Freio de Ouro Analyst",
+            instructions="Você é um especialista em provas do Freio de Ouro. Use os dados fornecidos para responder perguntas com precisão.",
             model="gpt-4-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Você é um analista especialista em provas de Freio de Ouro. "
-                        "Use o conteúdo da planilha enviada (com file_id) para responder à pergunta de forma precisa."
-                    )
-                },
-                {"role": "user", "content": pergunta}
-            ],
             tools=[{"type": "file_search"}],
-            tool_choice="auto",
-            file_ids=[upload.id]
+            file_ids=[file_upload.id]
         )
 
-        return resposta.choices[0].message.content
+        # Criar um thread
+        thread = client.beta.threads.create()
+
+        # Enviar a pergunta
+        client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=pergunta
+        )
+
+        # Iniciar a execução do assistant
+        run = client.beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id=assistant.id
+        )
+
+        # Aguardar a execução terminar
+        while True:
+            run_status = client.beta.threads.runs.retrieve(
+                thread_id=thread.id,
+                run_id=run.id
+            )
+            if run_status.status == "completed":
+                break
+            elif run_status.status == "failed":
+                return "A execução da IA falhou."
+
+        # Buscar a resposta
+        messages = client.beta.threads.messages.list(thread_id=thread.id)
+        resposta = messages.data[0].content[0].text.value
+        return resposta
 
     except Exception as e:
-        return f"Erro ao consultar IA com arquivo: {e}"
+        return f"Erro ao consultar IA com assistant: {e}""
 
 
 if pergunta:
