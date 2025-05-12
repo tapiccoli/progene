@@ -1,72 +1,86 @@
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
-import os
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-# =============================
-#  App: progenefreiodeouro
-#  Descrição: Chatbot de análise
-#  de resultados do Freio de Ouro
-# =============================
+# Carregar a chave da API do Streamlit Secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Carregar o modelo de embeddings (manter em cache)
+@st.cache_resource
+def load_embedding_model():
+    return SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
+
+embedding_model = load_embedding_model()
 
 @st.cache_data
-def carregar_dados():
+def load_data():
     df = pd.read_excel("dadosfreiodeourodomingueiro.xlsx")
-    if 'Prova' in df.columns:
-        df['Prova'] = df['Prova'].replace({"F.O.": "Freio de Ouro"})
     return df
 
-df = carregar_dados()
+df = load_data()
 
-st.title("progenefreiodeouro")
+# Gerar embeddings para todas as colunas (manter em cache)
+@st.cache_data
+def generate_all_column_embeddings(df, model):
+    all_column_embeddings = {}
+    for col in df.columns:
+        unique_values = df[col].astype(str).unique()
+        embeddings = model.encode(unique_values)
+        all_column_embeddings[col] = {value: emb for value, emb in zip(unique_values, embeddings)}
+    return all_column_embeddings
 
-st.sidebar.title("🔍 Exemplos de Perguntas")
-st.sidebar.markdown("- Qual a família materna mais frequente no Freio de Ouro?")
-st.sidebar.markdown("- Quantos domingueiros possuem linhas maternas repetidas?")
-st.sidebar.markdown("- Qual o pai com mais filhos finalistas?")
-st.sidebar.markdown("- Qual a nota média na coluna 'Final' por categoria?")
+all_column_embeddings = generate_all_column_embeddings(df, embedding_model)
 
-pergunta = st.text_input("Digite sua pergunta sobre o Freio de Ouro:")
+st.title("Progen Freio de Ouro")
+st.subheader("Pergunte sobre os dados dos animais:")
 
+pergunta = st.text_input("Sua pergunta:")
+resposta_area = st.empty()
 
-def responder_pergunta(pergunta: str, dados: pd.DataFrame) -> str:
-    pergunta_l = pergunta.lower()
+if st.button("Obter Resposta"):
+    if pergunta:
+        resposta_area.markdown("Processando...")
 
-    # 1) Família materna mais frequente
-    if "família materna" in pergunta_l and ("mais frequente" in pergunta_l or "mais repetida" in pergunta_l):
-        fam = dados['Familia Materna'].value_counts().head(5)
-        linhas = [f"- {n} ({c} ocorrências)" for n, c in fam.items()]
-        return "Famílias maternas mais frequentes:\n" + "\n".join(linhas)
+        try:
+            pergunta_embedding = embedding_model.encode([pergunta])[0]
+            relevant_context = []
 
-    # 2) Domingueiros com linhas maternas repetidas
-    if "domingueiro" in pergunta_l and "linhas" in pergunta_l and "materna" in pergunta_l:
-        dom = dados[dados['CATEGORIA'].str.contains('DOMINGUEIRO', case=False, na=False)]
-        cont = dom['Familia Materna'].value_counts()
-        repet = cont[cont > 1]
-        return f"Domingueiros analisados: {len(dom)}\nLinhas maternas que se repetem: {len(repet)}"
+            for col, value_embeddings in all_column_embeddings.items():
+                for value, emb in value_embeddings.items():
+                    similarity = cosine_similarity([pergunta_embedding], [emb])[0][0]
+                    if similarity > 0.7: # Ajuste o limiar conforme necessário
+                        relevant_rows = df[df[col].astype(str) == value]
+                        for index, row in relevant_rows.iterrows():
+                            relevant_context.append(row.to_dict())
 
-    # 3) Pai com mais filhos finalistas
-    if "pai" in pergunta_l and ("mais filhos" in pergunta_l or "mais descendentes" in pergunta_l):
-        if 'PAI' in dados.columns:
-            pai = dados['PAI'].value_counts().idxmax()
-            total = dados['PAI'].value_counts().max()
-            return f"Pai com mais filhos finalistas: {pai} ({total} filhos)"
-        return "A coluna 'PAI' não existe na planilha."
+            # Remover duplicatas do contexto relevante
+            unique_context = [dict(t) for t in set(tuple(d.items()) for d in relevant_context)]
 
-    # 4) Nota média na coluna Final por categoria
-    if "nota média" in pergunta_l and "final" in pergunta_l:
-        if 'Final' in dados.columns:
-            media_cat = dados.groupby('CATEGORIA')['Final'].mean().round(2)
-            return "Nota média da coluna 'Final' por categoria:\n" + media_cat.to_string()
-        return "A coluna 'Final' não existe na planilha."
+            context_string = ""
+            for item in unique_context:
+                context_string += f"{item}\n"
 
-    return "Desculpe, não consegui entender a pergunta. Tente reformular ou peça um dos exemplos no menu lateral."
+            prompt = f"Você é um assistente que responde perguntas sobre dados de animais. Use as seguintes informações para responder à pergunta:\n\n{context_string}\n\nPergunta: {pergunta}\nResposta:"
 
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Você é um assistente útil para responder perguntas sobre dados de animais."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=500 # Aumentei um pouco mais o max_tokens
+            )
+            resposta_ia = response.choices[0].message.content
+            resposta_area.markdown(resposta_ia)
 
-if pergunta:
-    with st.spinner("Consultando IA..."):
+        except Exception as e:
+            resposta_area.error(f"Ocorreu um erro: {e}")
+    else:
+        resposta_area.warning("Por favor, digite sua pergunta.")
         resposta = responder_pergunta(pergunta, df)
     st.markdown("### Resposta:")
     st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
