@@ -81,6 +81,3 @@ if st.button("Obter Resposta"):
             resposta_area.error(f"Ocorreu um erro: {e}")
     else:
         resposta_area.warning("Por favor, digite sua pergunta.")
-        resposta = responder_pergunta(pergunta, df)
-    st.markdown("### Resposta:")
-    st.markdown(f"<div style=\"user-select: none;\">{resposta}</div>", unsafe_allow_html=True)
