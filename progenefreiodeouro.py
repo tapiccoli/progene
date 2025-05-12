@@ -35,7 +35,7 @@ def generate_all_column_embeddings(df):
 all_column_embeddings = generate_all_column_embeddings(df)
 
 st.title("Progen Freio de Ouro")
-st.subheader("Pergunte sobre os dados dos animais:")
+st.subheader("Consulta Exclusiva aos Dados dos Animais:")
 
 pergunta = st.text_input("Sua pergunta:")
 resposta_area = st.empty()
@@ -63,7 +63,7 @@ if st.button("Obter Resposta"):
             for item in unique_context:
                 context_string += f"{item}\n"
 
-            prompt = f"""Você é um assistente especializado em responder perguntas sobre dados de animais fornecidos no seguinte contexto. Use **apenas** as informações presentes no contexto para responder à pergunta. Se a resposta não estiver no contexto, diga que você não tem a informação.
+            prompt = f"""Você é um sistema de consulta de dados estritamente limitado ao seguinte contexto. Responda à pergunta APENAS com as informações fornecidas abaixo. Se a resposta não puder ser encontrada no contexto, responda com uma frase curta e direta informando que a informação não está disponível. NÃO use seu conhecimento geral para responder.
 
             Contexto:
             ```
@@ -71,18 +71,20 @@ if st.button("Obter Resposta"):
             ```
 
             Pergunta: {pergunta}
-            Resposta:"""
+            Resposta direta e concisa (baseada APENAS no contexto):"""
 
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Você é um assistente especializado em responder perguntas sobre dados de animais."},
+                    {"role": "system", "content": "Você é um sistema de consulta de dados estritamente limitado ao contexto fornecido."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2,
-                max_tokens=500
+                temperature=0.0,  # Define a temperatura para 0 para respostas mais determinísticas
+                max_tokens=200,  # Limita o tamanho da resposta para ser concisa
             )
-            resposta_ia = response.choices[0].message.content
+            resposta_ia = response.choices[0].message.content.strip()
+            if not resposta_ia:
+                resposta_ia = "A informação não está disponível nos dados fornecidos."
             resposta_area.markdown(resposta_ia)
 
         except Exception as e:
