@@ -15,7 +15,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Carregar os dados da planilha Freio de Ouro
 @st.cache_data
 def carregar_dados():
-        df = pd.read_excel("dadosfreiodeourodomingueiro.xlsx")
+    df = pd.read_excel("dadosfreiodeourodomingueiro.xlsx")
     # Se a coluna 'Prova' existir, expanda a abreviatura; caso contrário, siga sem alterar
     if 'Prova' in df.columns:
         df['Prova'] = df['Prova'].replace({"F.O.": "Freio de Ouro"})
