@@ -40,11 +40,18 @@ def responder_pergunta(pergunta: str) -> str:
 
         # Criar o assistant
         assistant = client.beta.assistants.create(
+
             name="Freio de Ouro Analyst",
             instructions="Você é um especialista em provas do Freio de Ouro. Use os dados fornecidos para responder perguntas com precisão.",
             model="gpt-4-turbo",
             tools=[{"type": "file_search"}],
             
+        )
+
+        # Vincular o arquivo ao assistant
+        client.beta.assistants.update(
+            assistant_id=assistant.id,
+            file_ids=[file_upload.id]
         )
 
         # Criar um thread
